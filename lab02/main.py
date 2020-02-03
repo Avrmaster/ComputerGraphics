@@ -56,6 +56,7 @@ with open('./african_head.obj') as file:
     width = 600
     height = 800
     model_canvas = np.zeros((height, width, 3), dtype=np.uint8)
+    model_canvas_cv2 = np.zeros((height, width, 3), dtype=np.uint8)
     min_x = 200
     max_x = -200
     min_y = 200
@@ -94,7 +95,12 @@ with open('./african_head.obj') as file:
             for pixel in line(x2, y2, x3, y3):
                 model_canvas[pixel[::-1]] = (229, 222, 82)
 
+            cv2.line(model_canvas_cv2, (x1, y1), (x2, y2), (247, 255, 252))
+            cv2.line(model_canvas_cv2, (x1, y1), (x3, y3), (160, 160, 33))
+            cv2.line(model_canvas_cv2, (x2, y2), (x3, y3), (101, 104, 4))
+
     cv2.imshow('model', model_canvas)
+    cv2.imshow('model_canvas_cv2', model_canvas_cv2)
     cv2.waitKey(0)
 
 
