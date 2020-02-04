@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+from random import randint
 
 
 def line(x0, y0, x1, y1):
@@ -52,11 +53,35 @@ def circle(x1, y1, r):
         y -= 1
 
 
+def triangle(t0, t1, t2):
+    if t0[1] > t1[1]:
+        t0, t1 = t1, t0
+    if t0[1] > t2[1]:
+        t0, t2 = t2, t0
+    if t1[1] > t2[1]:
+        t1, t2 = t2, t1
+
+    (x0, y0), (x1, y1), (x2, y2) = t0, t1, t2
+    total_height = y2 - y0
+    for y in range(y0, y1 + 1):
+        segment_height = y1 - y0 + 1
+        alpha = float(y - y0) / total_height
+        beta = float(y - y0) / segment_height
+        ax = int(x0 + (x2 - x0) * alpha)
+        bx = int(x0 + (x1 - x0) * beta)
+        if ax > bx:
+            ax, bx = bx, ax
+        for j in range(ax, bx + 1):
+            yield j, y
+
+
 with open('./african_head.obj') as file:
     width = 600
     height = 800
     model_canvas = np.zeros((height, width, 3), dtype=np.uint8)
+    model_canvas_triangles = np.zeros((height, width, 3), dtype=np.uint8)
     model_canvas_cv2 = np.zeros((height, width, 3), dtype=np.uint8)
+    model_canvas_triangles_cv2 = np.zeros((height, width, 3), dtype=np.uint8)
     min_x = 200
     max_x = -200
     min_y = 200
@@ -99,16 +124,26 @@ with open('./african_head.obj') as file:
             cv2.line(model_canvas_cv2, (x1, y1), (x3, y3), (160, 160, 33))
             cv2.line(model_canvas_cv2, (x2, y2), (x3, y3), (101, 104, 4))
 
+            triangle_color = (randint(0, 255), randint(0, 255), randint(0, 255))
+            for pixel in triangle((x1, y1), (x2, y2), (x3, y3)):
+                model_canvas_triangles[pixel[::-1]] = triangle_color
+            cv2.drawContours(
+                model_canvas_triangles_cv2,
+                [np.array([[x1, y1], [x2, y2], [x3, y3]])],
+                0, triangle_color, -1
+            )
+
             if line_i % 15 == 0:
+                # pass
                 cv2.imshow('model_canvas_cv2', model_canvas_cv2)
+                cv2.imshow('model_triangles', model_canvas_triangles)
+                cv2.imshow('model_triangles_cv2', model_canvas_triangles_cv2)
                 cv2.imshow('model', model_canvas)
                 cv2.waitKey(1)
 
-    cv2.waitKey(0)
-
 
 def plot(cnv, x, y):
-    cv2.circle(cnv, (x, y), 1, color=(200, 201 , 20))
+    cnv[y, x] = (200, 201, 20)
 
 
 test_canvas = np.zeros((400, 400, 3), dtype=np.uint8)
@@ -118,5 +153,8 @@ for pixel in line(0, 200, 100, 120):
 for pixel in circle(100, 250, 20):
     plot(test_canvas, *pixel)
 
-# cv2.imshow('line & circle', test_canvas)
-# cv2.waitKey(0)
+for pixel in triangle((0, 0), (399, 399), (250, 60)):
+    plot(test_canvas, *pixel)
+
+cv2.imshow('test_canvas', test_canvas)
+cv2.waitKey(0)
