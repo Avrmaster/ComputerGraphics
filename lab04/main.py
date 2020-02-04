@@ -31,7 +31,7 @@ pmin, pmax, qmin, qmax = -2.5, 1.5, -2, 2
 def render_frame(i):
     print(f'\r{i + 1}/{max_frames}', end='')
 
-    p_center, q_center = -0.793191078177363, 0.16093721735804
+    p_center, q_center = -0.777807810193171, 0.131645108003206
     zoom = (i / max_frames * 2) ** 3 * max_zoom + 1
     scalefactor = 1 / zoom
 
