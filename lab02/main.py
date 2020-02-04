@@ -72,7 +72,7 @@ with open('./african_head.obj') as file:
         return min(canvas_x, width - 1), min(height - canvas_y, height - 1)
 
 
-    for obj_line in file:
+    for line_i, obj_line in enumerate(file):
         if obj_line.startswith('v '):
             x, y = [float(n) for n in obj_line.split(' ')[1:3]]
             vertices.append((x, y))
@@ -99,13 +99,16 @@ with open('./african_head.obj') as file:
             cv2.line(model_canvas_cv2, (x1, y1), (x3, y3), (160, 160, 33))
             cv2.line(model_canvas_cv2, (x2, y2), (x3, y3), (101, 104, 4))
 
-    cv2.imshow('model', model_canvas)
-    cv2.imshow('model_canvas_cv2', model_canvas_cv2)
+            if line_i % 15 == 0:
+                cv2.imshow('model_canvas_cv2', model_canvas_cv2)
+                cv2.imshow('model', model_canvas)
+                cv2.waitKey(1)
+
     cv2.waitKey(0)
 
 
 def plot(cnv, x, y):
-    cv2.circle(cnv, (x, y), 1, color=(200, 201, 20))
+    cv2.circle(cnv, (x, y), 1, color=(200, 201 , 20))
 
 
 test_canvas = np.zeros((400, 400, 3), dtype=np.uint8)
