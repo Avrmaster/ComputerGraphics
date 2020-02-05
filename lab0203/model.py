@@ -2,6 +2,8 @@ import cv2
 import numpy as np
 from math import cos, sin, radians
 from random import randint
+from time import time
+from playsound import playsound
 
 
 # noinspection PyShadowingNames
@@ -31,7 +33,6 @@ def line(x0, y0, x1, y1):
             error2 -= dx * 2
 
 
-# noinspection PyShadowingNames
 def circle(x1, y1, r):
     x = 0
     y = r
@@ -78,24 +79,38 @@ def triangle(t0, t1, t2):
             yield j, y
 
 
-def project_with_angle(v, thetaY, thetaZ, origin=(0, 0, 0)):
+# noinspection PyShadowingNames
+def project_with_angle(v, theta_x, theta_y, theta_z, origin=(0, 0, 0)):
     arr = np.array(
+        # X
+        [[1, 0, 0],
+         [0, cos(radians(-theta_x)), -sin(radians(-theta_x))],
+         [0, sin(radians(-theta_x)), cos(radians(-theta_x))]],
+    ).dot(
         # Y
-        [[cos(radians(-thetaY)), 0, sin(radians(-thetaY))],
-         [0, 1, 0],
-         [-sin(radians(-thetaY)), 0, cos(radians(-thetaY))]],
+        np.array([
+            [cos(radians(-theta_y)), 0, sin(radians(-theta_y))],
+            [0, 1, 0],
+            [-sin(radians(-theta_y)), 0, cos(radians(-theta_y))]
+        ])
     ).dot(
         # Z
         np.array([
-            [cos(radians(-thetaZ)), -sin(radians(-thetaZ)), 0],
-            [sin(radians(-thetaZ)), cos(radians(-thetaZ)), 0],
+            [cos(radians(-theta_z)), -sin(radians(-theta_z)), 0],
+            [sin(radians(-theta_z)), cos(radians(-theta_z)), 0],
             [0, 0, 1]
         ])
     ).dot(
         np.transpose(np.array(v) - np.array(origin))
     ) + np.array(origin)
 
-    return arr[0], arr[1]
+    return arr[0], arr[1], arr[2]
+
+
+# noinspection PyShadowingNames
+def get_z_order(face):
+    (v1, v2, v3), face_color = face
+    return v1[2] + v2[2] + v3[2]
 
 
 with open('./african_head.obj') as file:
@@ -109,7 +124,7 @@ with open('./african_head.obj') as file:
     faces = []
 
 
-    def scale_pixel(x, y):
+    def scale_pixel(x, y, z):
         scale = (min(width, height) - 1) / min((max_x - min_x), (max_y - min_y))
 
         canvas_x = int((x - min_x) * scale)
@@ -133,26 +148,38 @@ with open('./african_head.obj') as file:
             face_color = (randint(0, 255), randint(0, 255), randint(0, 255))
             faces.append((tuple(vertices[vi] for vi in [vi1, vi2, vi3]), face_color))
 
-    thetaZ = 0
+    theta_x = 0
+    theta_z = 0
     frames = []
-    for thetaX in range(0, 360, 2):
-        print(f'\r{thetaX}/{360}', end='')
-        thetaZ += 4
+    origin = [-1, 2, 0]
+
+    for theta_y in range(0, 360):
+        print(f'\r{theta_y + 1}/{360}', end='')
+        theta_z += 3.19
+        theta_x += 2.2
 
         model_canvas = np.zeros((height, width, 3), dtype=np.uint8)
+        rotated_faces = [
+            (
+                [project_with_angle(v, theta_x, theta_y, theta_z, origin) for v in vs],
+                c
+            )
+            for (vs, c)
+            in faces
+        ]
 
-        for face in faces:
+        ordered_faces = reversed(sorted(rotated_faces, key=get_z_order))
+
+        for face in ordered_faces:
             (v1, v2, v3), face_color = face
 
-            origin = [-1, 2, 0]
+            x1, y1 = scale_pixel(*v1)
+            x2, y2 = scale_pixel(*v2)
+            x3, y3 = scale_pixel(*v3)
 
-            x1, y1 = scale_pixel(*project_with_angle(v1, thetaX, thetaZ, origin))
-            x2, y2 = scale_pixel(*project_with_angle(v2, thetaX, thetaZ, origin))
-            x3, y3 = scale_pixel(*project_with_angle(v3, thetaX, thetaZ, origin))
-
-            # cv2.line(model_canvas, (x1, y1), (x2, y2), color=(163, 142, 86))
-            # cv2.line(model_canvas, (x1, y1), (x3, y3), color=(163, 142, 86))
-            # cv2.line(model_canvas, (x2, y2), (x3, y3), color=(163, 142, 86))
+            cv2.line(model_canvas, (x1, y1), (x2, y2), color=(163, 142, 86))
+            cv2.line(model_canvas, (x1, y1), (x3, y3), color=(163, 142, 86))
+            cv2.line(model_canvas, (x2, y2), (x3, y3), color=(163, 142, 86))
 
             cv2.drawContours(
                 model_canvas,
@@ -161,7 +188,11 @@ with open('./african_head.obj') as file:
             )
 
         frames.append(model_canvas)
+
+    playsound('./Scatman.mp3', block=False)
     while True:
-        for frame in frames:
+        for frame in frames + list(reversed(frames)):
+            start = int(time() * 1000)
             cv2.imshow('model', frame)
-            cv2.waitKey(16)
+            end = int(time() * 1000)
+            cv2.waitKey(max(1, 16 - (start - end)))
