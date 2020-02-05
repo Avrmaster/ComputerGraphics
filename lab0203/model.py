@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 from math import cos, sin, radians
+from random import randint
 
 
 # noinspection PyShadowingNames
@@ -77,21 +78,24 @@ def triangle(t0, t1, t2):
             yield j, y
 
 
-def project_with_angle(v, theta):
-    # Z
-    # [[cos(radians(-theta)), -sin(radians(-theta)), 0],
-    #          [sin(radians(-theta)), cos(radians(-theta)), 0],
-    #          [0, 0, 1]]
-
+def project_with_angle(v, thetaY, thetaZ, origin=(0, 0, 0)):
     arr = np.array(
-        [[cos(radians(-theta)), 0, sin(radians(-theta))],
+        # Y
+        [[cos(radians(-thetaY)), 0, sin(radians(-thetaY))],
          [0, 1, 0],
-         [-sin(radians(-theta)), 0, cos(radians(-theta))]],
+         [-sin(radians(-thetaY)), 0, cos(radians(-thetaY))]],
     ).dot(
-        np.transpose(np.array(v) - np.array([500, 0, 0]))
-    )
+        # Z
+        np.array([
+            [cos(radians(-thetaZ)), -sin(radians(-thetaZ)), 0],
+            [sin(radians(-thetaZ)), cos(radians(-thetaZ)), 0],
+            [0, 0, 1]
+        ])
+    ).dot(
+        np.transpose(np.array(v) - np.array(origin))
+    ) + np.array(origin)
 
-    return int(arr[0]), int(arr[1])
+    return arr[0], arr[1]
 
 
 with open('./african_head.obj') as file:
@@ -105,14 +109,13 @@ with open('./african_head.obj') as file:
     faces = []
 
 
-    def scale_pixel(x, y, z):
-        scale = (min(width, height) - 1) / min((max_x - min_x), (max_y - min_y), (max_z - min_z))
+    def scale_pixel(x, y):
+        scale = (min(width, height) - 1) / min((max_x - min_x), (max_y - min_y))
 
         canvas_x = int((x - min_x) * scale)
         canvas_y = int((y - min_y) * scale)
-        canvas_z = int((z - min_z) * scale)
 
-        return canvas_x, height - 1 - canvas_y, canvas_z
+        return canvas_x, height - 1 - canvas_y
 
 
     for line_i, obj_line in enumerate(file):
@@ -127,30 +130,38 @@ with open('./african_head.obj') as file:
             f1, f2, f3 = obj_line.split(' ')[1:]
             # vertices indices start from 1 in .obj
             vi1, vi2, vi3 = [int(f.split('/')[0]) - 1 for f in [f1, f2, f3]]
-            v1, v2, v3 = [scale_pixel(*vertices[vi]) for vi in [vi1, vi2, vi3]]
+            face_color = (randint(0, 255), randint(0, 255), randint(0, 255))
+            faces.append((tuple(vertices[vi] for vi in [vi1, vi2, vi3]), face_color))
 
-            faces.append((v1, v2, v3))
+    thetaZ = 0
+    frames = []
+    for thetaX in range(0, 360, 2):
+        print(f'\r{thetaX}/{360}', end='')
+        thetaZ += 4
 
+        model_canvas = np.zeros((height, width, 3), dtype=np.uint8)
+
+        for face in faces:
+            (v1, v2, v3), face_color = face
+
+            origin = [-1, 2, 0]
+
+            x1, y1 = scale_pixel(*project_with_angle(v1, thetaX, thetaZ, origin))
+            x2, y2 = scale_pixel(*project_with_angle(v2, thetaX, thetaZ, origin))
+            x3, y3 = scale_pixel(*project_with_angle(v3, thetaX, thetaZ, origin))
+
+            # cv2.line(model_canvas, (x1, y1), (x2, y2), color=(163, 142, 86))
+            # cv2.line(model_canvas, (x1, y1), (x3, y3), color=(163, 142, 86))
+            # cv2.line(model_canvas, (x2, y2), (x3, y3), color=(163, 142, 86))
+
+            cv2.drawContours(
+                model_canvas,
+                [np.array([[x1, y1], [x2, y2], [x3, y3]])],
+                0, face_color, -1
+            )
+
+        frames.append(model_canvas)
     while True:
-        for theta in range(0, 360, 10):
-            model_canvas = np.zeros((height, width, 3), dtype=np.uint8)
-            for face in faces:
-                v1, v2, v3 = face
-                x1, y1 = project_with_angle(v1, theta)
-                x2, y2 = project_with_angle(v2, theta)
-                x3, y3 = project_with_angle(v3, theta)
-
-                # cv2.line(model_canvas, (x1, y1), (x2, y2), color=(163, 142, 86))
-                # cv2.line(model_canvas, (x1, y1), (x3, y3), color=(163, 142, 86))
-                # cv2.line(model_canvas, (x2, y2), (x3, y3), color=(163, 142, 86))
-                try:
-                    for pixel in line(x1, y1, x2, y2):
-                        model_canvas[pixel[::-1]] = (163, 142, 86)
-                    for pixel in line(x1, y1, x3, y3):
-                        model_canvas[pixel[::-1]] = (163, 142, 86)
-                    for pixel in line(x2, y2, x3, y3):
-                        model_canvas[pixel[::-1]] = (163, 142, 86)
-                except:
-                    pass
-            cv2.imshow('model', model_canvas)
-            cv2.waitKey(1)
+        for frame in frames:
+            cv2.imshow('model', frame)
+            cv2.waitKey(16)
