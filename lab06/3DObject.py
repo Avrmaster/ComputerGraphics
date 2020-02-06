@@ -3,6 +3,11 @@ import cv2
 from math import cos, sin, pi, radians
 from random import randint
 
+light_vector = np.array((0., -1., 0.))
+ambient_coef = 0.05
+diffuse_coef = 0.8
+specular_coef = 0.3
+
 
 def move_cycle(arr: list):
     copy = arr[1:]
@@ -68,9 +73,35 @@ def torus(R, r, vertices_count):
         for v1, v2, v3, v4 in zip(circle1, move_cycle(circle1), circle2, move_cycle(circle2)):
             faces.extend([
                 (v1, v2, v3),
-                (v2, v3, v4)
+                (v2, v4, v3)
             ])
     return faces
+
+
+# noinspection PyShadowingNames
+def get_lighten_color(face, original_color):
+    v1, v2, v3 = face
+    x1, y1, z1 = v1
+    x2, y2, z2 = v2
+    x3, y3, z3 = v3
+
+    normal_vector = np.array([
+        (y2 - y1) * (z3 - z1) - (z2 - z1) * (y3 - y1),
+        (z2 - z1) * (x3 - x1) - (x2 - x1) * (z3 - z1),
+        (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1)
+    ])
+    normal_vector = normal_vector / np.linalg.norm(normal_vector)
+
+    diffuse_light = max(light_vector.dot(normal_vector), 0.0)
+    specular_light = 0
+
+    return tuple(
+        c * min(1.,
+                ambient_coef +
+                diffuse_coef * diffuse_light +
+                specular_coef * specular_light
+                ) for c in original_color
+    )
 
 
 canvas_width = 600
@@ -83,7 +114,7 @@ for face in torus(R=250, r=60, vertices_count=20):
 
 angle_deg = 0
 while True:
-    angle_deg += 0.1
+    angle_deg += 0.08
 
     canvas = np.zeros((canvas_height, canvas_width, 3), dtype=np.uint8)
     angle = radians(angle_deg)
@@ -97,15 +128,17 @@ while True:
 
     ordered_faces = reversed(sorted(transformed_faces, key=get_z_order))
 
-    for face, color in ordered_faces:
+    for face_index, (face, original_color) in enumerate(ordered_faces):
         (x1, y1, z1), \
         (x2, y2, z2), \
         (x3, y3, z3) = face
 
+        lighten_color = get_lighten_color(face, original_color)
+
         cv2.drawContours(
             canvas,
             [np.array([[int(x1), int(y1)], [int(x2), int(y2)], [int(x3), int(y3)]])],
-            0, color, -1
+            0, lighten_color, -1
         )
 
     cv2.imshow('thor', canvas)
