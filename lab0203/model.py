@@ -5,6 +5,12 @@ from random import randint
 from time import time
 from playsound import playsound
 
+light_vector = np.array((0., -1., 0.))
+view_dir = np.array((0., 0., -1.))
+ambient_coef = 0.1
+diffuse_coef = 0.8
+specular_coef = 20
+
 
 # noinspection PyShadowingNames
 def line(x0, y0, x1, y1):
@@ -113,6 +119,35 @@ def get_z_order(face):
     return v1[2] + v2[2] + v3[2]
 
 
+def get_lighten_color(face, original_color):
+    v1, v2, v3 = face
+    x1, y1, z1 = v1
+    x2, y2, z2 = v2
+    x3, y3, z3 = v3
+
+    # diffuse
+    normal_vector: np.ndarray = np.array([
+        (y2 - y1) * (z3 - z1) - (z2 - z1) * (y3 - y1),
+        (z2 - z1) * (x3 - x1) - (x2 - x1) * (z3 - z1),
+        (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1)
+    ])
+    normal_vector = normal_vector / np.linalg.norm(normal_vector)
+    diffuse_light = max(light_vector.dot(normal_vector), 0.0)
+
+    # specular
+    reflect_dir = 2 * normal_vector * (
+            normal_vector.dot(light_vector) / normal_vector.dot(normal_vector)) - light_vector
+    specular_light = pow(max(view_dir.dot(reflect_dir), 0.0), 32)
+
+    return tuple(
+        min(255, int(c * (
+                ambient_coef +
+                diffuse_coef * diffuse_light +
+                specular_coef * specular_light
+        ))) for c in original_color
+    )
+
+
 with open('./african_head.obj') as file:
     width = 500
     height = 800
@@ -184,7 +219,7 @@ with open('./african_head.obj') as file:
             cv2.drawContours(
                 model_canvas,
                 [np.array([[x1, y1], [x2, y2], [x3, y3]])],
-                0, face_color, -1
+                0, get_lighten_color((v1, v2, v3), face_color), -1
             )
 
         frames.append(model_canvas)
