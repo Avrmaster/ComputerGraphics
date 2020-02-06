@@ -4,9 +4,10 @@ from math import cos, sin, pi, radians
 from random import randint
 
 light_vector = np.array((0., -1., 0.))
-ambient_coef = 0.05
+view_dir = np.array((0., 0., -1.))
+ambient_coef = 0.1
 diffuse_coef = 0.8
-specular_coef = 0.3
+specular_coef = 20
 
 
 def move_cycle(arr: list):
@@ -85,22 +86,26 @@ def get_lighten_color(face, original_color):
     x2, y2, z2 = v2
     x3, y3, z3 = v3
 
-    normal_vector = np.array([
+    # diffuse
+    normal_vector: np.ndarray = np.array([
         (y2 - y1) * (z3 - z1) - (z2 - z1) * (y3 - y1),
         (z2 - z1) * (x3 - x1) - (x2 - x1) * (z3 - z1),
         (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1)
     ])
     normal_vector = normal_vector / np.linalg.norm(normal_vector)
-
     diffuse_light = max(light_vector.dot(normal_vector), 0.0)
-    specular_light = 0
+
+    # specular
+    reflect_dir = 2 * normal_vector * (
+            normal_vector.dot(light_vector) / normal_vector.dot(normal_vector)) - light_vector
+    specular_light = pow(max(view_dir.dot(reflect_dir), 0.0), 32)
 
     return tuple(
-        c * min(1.,
+        min(255, int(c * (
                 ambient_coef +
                 diffuse_coef * diffuse_light +
                 specular_coef * specular_light
-                ) for c in original_color
+        ))) for c in original_color
     )
 
 
@@ -114,7 +119,7 @@ for face in torus(R=250, r=60, vertices_count=20):
 
 angle_deg = 0
 while True:
-    angle_deg += 0.08
+    angle_deg += 0.03
 
     canvas = np.zeros((canvas_height, canvas_width, 3), dtype=np.uint8)
     angle = radians(angle_deg)
