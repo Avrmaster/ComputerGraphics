@@ -109,45 +109,46 @@ def get_lighten_color(face, original_color):
     )
 
 
-canvas_width = 600
-canvas_height = 600
-torus_translate = [300, 300, 0]
-torus_faces = []
-for face in torus(R=220, r=80, vertices_count=60):
-    face_color = (randint(0, 255), randint(0, 255), randint(0, 255))
-    torus_faces.append((face, face_color))
+if __name__ == '__main__':
+    canvas_width = 600
+    canvas_height = 600
+    torus_translate = [300, 300, 0]
+    torus_faces = []
+    for face in torus(R=220, r=80, vertices_count=60):
+        face_color = (randint(0, 255), randint(0, 255), randint(0, 255))
+        torus_faces.append((face, face_color))
 
-frames = []
-for angle_deg in range(0, 360):
-    print(f'\r{angle_deg + 1}/{360}', end='')
+    frames = []
+    for angle_deg in range(0, 360):
+        print(f'\r{angle_deg + 1}/{360}', end='')
 
-    canvas = np.zeros((canvas_height, canvas_width, 3), dtype=np.uint8)
-    angle = radians(angle_deg)
+        canvas = np.zeros((canvas_height, canvas_width, 3), dtype=np.uint8)
+        angle = radians(angle_deg)
 
-    transformed_faces = []
+        transformed_faces = []
 
-    for face, color in torus_faces:
-        v1, v2, v3 = [rotate(v, theta_x=(pi / 3), theta_y=angle, theta_z=angle) for v in face]
-        v1, v2, v3 = [translate(v, torus_translate) for v in [v1, v2, v3]]
-        transformed_faces.append(((v1, v2, v3), color))
+        for face, color in torus_faces:
+            v1, v2, v3 = [rotate(v, theta_x=(pi / 3), theta_y=angle, theta_z=angle) for v in face]
+            v1, v2, v3 = [translate(v, torus_translate) for v in [v1, v2, v3]]
+            transformed_faces.append(((v1, v2, v3), color))
 
-    ordered_faces = reversed(sorted(transformed_faces, key=get_z_order))
+        ordered_faces = reversed(sorted(transformed_faces, key=get_z_order))
 
-    for face_index, (face, original_color) in enumerate(ordered_faces):
-        (x1, y1, z1), \
-        (x2, y2, z2), \
-        (x3, y3, z3) = face
+        for face_index, (face, original_color) in enumerate(ordered_faces):
+            (x1, y1, z1), \
+            (x2, y2, z2), \
+            (x3, y3, z3) = face
 
-        lighten_color = get_lighten_color(face, original_color)
+            lighten_color = get_lighten_color(face, original_color)
 
-        cv2.drawContours(
-            canvas,
-            [np.array([[int(x1), int(y1)], [int(x2), int(y2)], [int(x3), int(y3)]])],
-            0, lighten_color, -1
-        )
-    frames.append(canvas)
+            cv2.drawContours(
+                canvas,
+                [np.array([[int(x1), int(y1)], [int(x2), int(y2)], [int(x3), int(y3)]])],
+                0, lighten_color, -1
+            )
+        frames.append(canvas)
 
-while True:
-    for f in frames:
-        cv2.imshow('torus', f)
-        cv2.waitKey(2)
+    while True:
+        for f in frames:
+            cv2.imshow('torus', f)
+            cv2.waitKey(2)
