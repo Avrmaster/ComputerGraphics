@@ -6,8 +6,8 @@ from object3D import torus, rotate
 import numpy as np
 
 
-def draw_torus(R, r, vertices_count=15):
-    glBegin(GL_TRIANGLES)
+def gen_torus(R, r, vertices_count=10):
+    faces_normals = []
     for face in torus(R, r, vertices_count):
         v1, v2, v3 = face
         x1, y1, z1 = v1
@@ -19,7 +19,15 @@ def draw_torus(R, r, vertices_count=15):
             (z2 - z1) * (x3 - x1) - (x2 - x1) * (z3 - z1),
             (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1)
         ])
-        glNormal3f(*normal_vector.tolist())
+        faces_normals.append(((v1, v2, v3), normal_vector.tolist()))
+    return faces_normals
+
+
+def draw_torus(generated_torus):
+    glBegin(GL_TRIANGLES)
+    for face, normal in generated_torus:
+        v1, v2, v3 = face
+        glNormal3f(*normal)
 
         glColor3fv((0.3, 0.8, 0.5))
         glVertex3fv(v1)
@@ -60,6 +68,13 @@ def main():
     glLightfv(GL_LIGHT0, GL_DIFFUSE, [2, 2, 2, 1])
     # glLightfv(GL_LIGHT0, GL_SPECULAR, [0.4, 0.4, 0.4, 0.2])
 
+    toruses = [
+        gen_torus(300, 60),
+        gen_torus(180, 45),
+        gen_torus(90, 30)
+    ]
+    rotations = [0 for t in toruses]
+
     light_angle = [0, 0, -1]
     while True:
         light_angle = rotate(light_angle, 0.1, 0.05, 0.025)
@@ -71,11 +86,17 @@ def main():
                 pygame.quit()
                 quit()
 
-        glRotatef(2, 1, 1, 1)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-        draw_torus(300, 60)
+        for tor_i, tor in enumerate(toruses):
+            glPushMatrix()
+            rotations[tor_i] += (tor_i + 1) * 1.5
+            glRotatef(rotations[tor_i], 1, 1, 1)
+            draw_torus(tor)
+            glPopMatrix()
+
         pygame.display.flip()
         pygame.time.wait(16)
 
 
-main()
+if __name__ == '__main__':
+    main()
